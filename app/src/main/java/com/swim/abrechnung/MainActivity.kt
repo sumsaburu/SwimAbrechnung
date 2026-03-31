@@ -56,7 +56,13 @@ fun AppNavigation() {
             HomeScreen(viewModel, navController)
         }
         composable("settings") {
+            SettingsScreen(viewModel, navController)
+        }
+        composable("profile_edit") {
             ProfileSetupScreen(viewModel, navController, isEditing = true)
+        }
+        composable("rates_edit") {
+            RatesSettingsScreen(viewModel, navController)
         }
         composable(
             "entry_form/{type}?entryId={entryId}",

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -70,6 +71,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun saveProfile(profile: UserProfile) {
         viewModelScope.launch {
             repository.insertProfile(profile)
+        }
+    }
+
+    fun updateLastReportTimestamp(timestamp: Long) {
+        viewModelScope.launch {
+            val currentProfile = userProfile.first()
+            if (currentProfile != null) {
+                saveProfile(currentProfile.copy(lastReportGeneratedAt = timestamp))
+            }
         }
     }
 

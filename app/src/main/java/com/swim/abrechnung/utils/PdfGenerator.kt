@@ -19,16 +19,14 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 object PdfGenerator {
-    private const val RATE_WETTKAMPF = 1.0
-    private const val RATE_TRAINER = 2.0
-    private const val KM_RATE = 0.20
 
     fun generateAndSendPdf(
         context: Context,
         profile: UserProfile,
         entries: List<Entry>,
         quarter: Int,
-        year: Int
+        year: Int,
+        onGenerated: (Long) -> Unit = {}
     ) {
         val pdfDocument = PdfDocument()
         val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.GERMAN)
@@ -48,6 +46,7 @@ object PdfGenerator {
         val file = File(context.cacheDir, fileName)
         try {
             pdfDocument.writeTo(FileOutputStream(file))
+            onGenerated(System.currentTimeMillis())
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -129,9 +128,9 @@ object PdfGenerator {
         
         val hBetreuer = totalMinBetreuer / 60.0
         val hKampf = totalMinKampf / 60.0
-        val sumBetreuer = hBetreuer * RATE_WETTKAMPF
-        val sumKampf = hKampf * RATE_WETTKAMPF
-        val sumKm = (totalKmBetreuer + totalKmKampf) * KM_RATE
+        val sumBetreuer = hBetreuer * profile.rateBetreuer
+        val sumKampf = hKampf * profile.rateKampfrichter
+        val sumKm = (totalKmBetreuer + totalKmKampf) * profile.rateKm
 
         canvas.drawText("Summe Betreuer: ${String.format(Locale.GERMAN, "%.2f", hBetreuer)} Std. / $totalKmBetreuer km", 40f, y, paint)
         y += 15f
@@ -142,11 +141,11 @@ object PdfGenerator {
         canvas.drawText("Abrechnung gemäß Finanzordnung:", 40f, y, paint)
         y += 20f
         paint.isFakeBoldText = false
-        canvas.drawText("Vergütung Betreuer: ${String.format(Locale.GERMAN, "%.2f", sumBetreuer)} € (Übungsleiterfreibetrag)", 40f, y, paint)
+        canvas.drawText("Vergütung Betreuer: ${String.format(Locale.GERMAN, "%.2f", sumBetreuer)} € (Satz: ${String.format(Locale.GERMAN, "%.2f", profile.rateBetreuer)} €/h)", 40f, y, paint)
         y += 15f
-        canvas.drawText("Vergütung Kampfrichter: ${String.format(Locale.GERMAN, "%.2f", sumKampf)} € (Ehrenamtsfreibetrag)", 40f, y, paint)
+        canvas.drawText("Vergütung Kampfrichter: ${String.format(Locale.GERMAN, "%.2f", sumKampf)} € (Satz: ${String.format(Locale.GERMAN, "%.2f", profile.rateKampfrichter)} €/h)", 40f, y, paint)
         y += 15f
-        canvas.drawText("Erstattung Fahrtkosten Gesamt: ${String.format(Locale.GERMAN, "%.2f", sumKm)} €", 40f, y, paint)
+        canvas.drawText("Erstattung Fahrtkosten Gesamt: ${String.format(Locale.GERMAN, "%.2f", sumKm)} € (Satz: ${String.format(Locale.GERMAN, "%.2f", profile.rateKm)} €/km)", 40f, y, paint)
         y += 25f
         
         paint.isFakeBoldText = true
@@ -214,8 +213,10 @@ object PdfGenerator {
         canvas.drawLine(40f, y, 565f, y, paint)
         y += 20f
         canvas.drawText("Gesamtstunden: $totalHours Std.", 40f, y, paint)
+        y += 15f
+        canvas.drawText("Trainerstatus: ${profile.trainerStatus} (Satz: ${String.format(Locale.GERMAN, "%.2f", profile.rateTrainer)} €/h)", 40f, y, paint)
         y += 20f
-        val totalSum = totalHours * RATE_TRAINER
+        val totalSum = totalHours * profile.rateTrainer
         canvas.drawText("Gesamtbetrag Überweisung: ${String.format(Locale.GERMAN, "%.2f", totalSum)} €", 40f, y, paint)
         
         y += 40f

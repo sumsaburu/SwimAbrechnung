@@ -28,6 +28,7 @@ fun ReportScreen(viewModel: MainViewModel, navController: NavController) {
     val userProfile by viewModel.userProfile.collectAsState(initial = null)
     
     val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.GERMAN) }
+    val dateTimeFormatter = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN) }
 
     Scaffold(
         topBar = {
@@ -84,15 +85,28 @@ fun ReportScreen(viewModel: MainViewModel, navController: NavController) {
             
             Divider(modifier = Modifier.padding(vertical = 16.dp))
             
+            // Info über letzten versendeten Bericht
+            userProfile?.let { profile ->
+                if (profile.lastReportGeneratedAt > 0) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Text(
+                            text = "Letzter Bericht versendet am: ${dateTimeFormatter.format(Date(profile.lastReportGeneratedAt))}",
+                            modifier = Modifier.padding(8.dp),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
             // Berechnung der Summen
             val trainerTotal = entries.filter { it.category == "Trainer" }.sumOf { it.value }
-            
-            // Wettkampfzeiten berechnen
             val wettkampfEntries = entries.filter { it.category == "Wettkampf" }
             val totalWettkampfMinutes = wettkampfEntries.sumOf { 
                 TimeUtils.calculateDurationMinutes(it.startTime, it.endTime) 
             }
-            
             val kmTotal = entries.sumOf { it.kilometers }
 
             Card(
@@ -119,7 +133,10 @@ fun ReportScreen(viewModel: MainViewModel, navController: NavController) {
                             profile = profile,
                             entries = entries,
                             quarter = selectedQuarter,
-                            year = selectedYear
+                            year = selectedYear,
+                            onGenerated = { timestamp ->
+                                viewModel.updateLastReportTimestamp(timestamp)
+                            }
                         )
                     }
                 },

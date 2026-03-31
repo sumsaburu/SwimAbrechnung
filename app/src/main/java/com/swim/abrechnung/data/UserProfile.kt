@@ -13,5 +13,14 @@ data class UserProfile(
     val city: String,
     val iban: String,
     val bankName: String,
-    val signatureBase64: String? = null
+    val signatureBase64: String? = null,
+    // Abrechnungssätze
+    val rateKampfrichter: Double = 1.0,
+    val rateBetreuer: Double = 1.0,
+    val rateTrainer: Double = 2.0,
+    val rateKm: Double = 0.20,
+    // Trainerstatus
+    val trainerStatus: String = "kein Trainerschein",
+    // Tracking für Berichte (Timestamp der letzten Erstellung)
+    val lastReportGeneratedAt: Long = 0L
 )
