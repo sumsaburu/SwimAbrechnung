@@ -31,4 +31,38 @@ Die App wurde mit modernen Android-Technologien entwickelt:
 - **Architektur:** MVVM (Model-View-ViewModel)
 
 ---
-*Entwickelt für eine einfache und transparente Abrechnung im Ehrenamt.*
+
+# SwimAbrechnung (English)
+
+A modern Android app for easy recording and billing of trainer, supervisor and judge hours as well as travel costs. The app is specifically designed for sports clubs to minimize the administrative effort for expense allowances.
+
+## Features
+
+- **Coach Billing:** Recording of training sessions including location and duration.
+- **Competition Billing:** Detailed recording of assignments as a supervisor or judge including start and end times as well as automatic duration calculation.
+- **Configurable Rates:** Store your individual compensation rates for coaches, supervisors, judges and mileage directly in the settings.
+- **Coach Status:** Choose your qualification level (e.g. Coach C), which is automatically noted on the reports.
+- **Mileage Logic:** Automatic travel cost tracking with integrated validation (only one mileage allowance per calendar day permitted).
+- **PDF Export:** Generation of professional, legally compliant PDF documents, automatically separated into coach and competition assignments.
+- **Digital Signature:** Store your signature once to automatically insert it in the correct place on all reports.
+- **Dispatch Tracking:** The app remembers when you last sent a report for a quarter.
+- **Privacy & Offline-First:** All data is stored exclusively locally in an encrypted Room database on your device. No cloud, no tracking.
+
+## Setup & Usage
+
+1. **Profile:** Enter your name, address, IBAN and digital signature on the first start.
+2. **Rates & Status:** Configure your current compensation rates and your coaching qualification under "Settings > Rates & Status".
+3. **Entry:** Choose between coach or competition billing on the home screen.
+4. **Report:** Select the desired year/quarter, check the totals and create the finished PDF for dispatch with one click.
+
+## Technical Details
+
+The app was developed with modern Android technologies:
+- **Language:** Kotlin
+- **UI:** Jetpack Compose (Material 3 Design)
+- **Database:** Room Persistence Library
+- **PDF Engine:** Native Android PdfDocument API
+- **Architecture:** MVVM (Model-View-ViewModel)
+
+---
+*Entwickelt für eine einfache und transparente Abrechnung im Ehrenamt / Developed for simple and transparent volunteer accounting.*
