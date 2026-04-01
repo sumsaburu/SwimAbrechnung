@@ -1,0 +1,10 @@
+SwimAbrechnung is a modern Android app for easy recording and billing of trainer, supervisor and judge hours as well as travel costs. The app is specifically designed for sports clubs to minimize the administrative effort for expense allowances.
+
+Features:
+- Coach billing: Recording of training sessions including location and duration.
+- Competition billing: Detailed recording of assignments including automatic time calculation.
+- Configurable rates: Store your individual compensation rates directly in the settings.
+- Mileage logic: Automatic recording of travel costs with integrated validation.
+- PDF export: Generation of professional billing documents.
+- Digital signature: Store your signature for automatic inclusion in reports.
+- Data protection: All data remains local on your device.

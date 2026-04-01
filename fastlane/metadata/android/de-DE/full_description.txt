@@ -1,0 +1,10 @@
+SwimAbrechnung ist eine moderne Android-App zur einfachen Erfassung und Abrechnung von Trainer-, Betreuer- und Kampfrichterstunden sowie Fahrtkosten. Die App ist speziell für Sportvereine konzipiert, um den administrativen Aufwand bei Aufwandsentschädigungen zu minimieren.
+
+Funktionen:
+- Trainer-Abrechnung: Erfassung von Trainingseinheiten inklusive Ort und Dauer.
+- Wettkampf-Abrechnung: Detaillierte Erfassung von Einsätzen inklusive automatischer Zeitberechnung.
+- Konfigurierbare Sätze: Hinterlege deine individuellen Vergütungssätze direkt in den Einstellungen.
+- Kilometer-Logik: Automatische Fahrtkostenerfassung mit integrierter Prüfung.
+- PDF-Export: Generierung von professionellen Abrechnungsdokumenten.
+- Digitale Unterschrift: Hinterlege deine Unterschrift für die automatische Einbindung in Berichte.
+- Datenschutz: Alle Daten bleiben lokal auf deinem Gerät.
