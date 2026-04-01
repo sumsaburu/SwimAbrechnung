@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.SVRheine" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.SwimAbrechnung" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>
