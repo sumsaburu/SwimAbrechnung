@@ -9,7 +9,7 @@ Eine moderne Android-App zur einfachen Erfassung und Abrechnung von Trainer-, Be
 - **Konfigurierbare Sätze:** Hinterlege deine individuellen Vergütungssätze für Trainer, Betreuer, Kampfrichter und Kilometer direkt in den Einstellungen.
 - **Trainerstatus:** Wähle deine Qualifikationsstufe (z.B. Trainer C), welche automatisch auf den Berichten vermerkt wird.
 - **Kilometer-Logik:** Automatische Fahrtkostenerfassung mit integrierter Prüfung (nur eine Kilometerpauschale pro Kalendertag zulässig).
-- **PDF-Export:** Generierung von professionellen, rechtssicheren Abrechnungsdokumenten als PDF, automatisch aufgeteilt nach Trainer- und Wettkampfeinsätzen.
+- **PDF-Export:** Generierung von professionellen Abrechnungsdokumenten als PDF, automatisch aufgeteilt nach Trainer- und Wettkampfeinsätzen.
 - **Digitale Unterschrift:** Hinterlege deine Unterschrift einmalig, um sie automatisch auf allen Berichten an der richtigen Stelle einzufügen.
 - **Versand-Tracking:** Die App merkt sich, wann du den letzten Bericht für ein Quartal versendet hast.
 - **Datenschutz & Offline-First:** Alle Daten werden ausschließlich lokal in einer verschlüsselten Room-Datenbank auf deinem Gerät gespeichert. Keine Cloud, kein Tracking.
@@ -43,7 +43,7 @@ A modern Android app for easy recording and billing of trainer, supervisor and j
 - **Configurable Rates:** Store your individual compensation rates for coaches, supervisors, judges and mileage directly in the settings.
 - **Coach Status:** Choose your qualification level (e.g. Coach C), which is automatically noted on the reports.
 - **Mileage Logic:** Automatic travel cost tracking with integrated validation (only one mileage allowance per calendar day permitted).
-- **PDF Export:** Generation of professional, legally compliant PDF documents, automatically separated into coach and competition assignments.
+- **PDF Export:** Generation of professional compliant PDF documents, automatically separated into coach and competition assignments.
 - **Digital Signature:** Store your signature once to automatically insert it in the correct place on all reports.
 - **Dispatch Tracking:** The app remembers when you last sent a report for a quarter.
 - **Privacy & Offline-First:** All data is stored exclusively locally in an encrypted Room database on your device. No cloud, no tracking.
