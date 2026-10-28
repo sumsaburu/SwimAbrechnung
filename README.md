@@ -66,3 +66,7 @@ The app was developed with modern Android technologies:
 
 ---
 *Entwickelt für eine einfache und transparente Abrechnung im Ehrenamt / Developed for simple and transparent volunteer accounting.*
+
+## Lizenz / License
+
+Copyright 2026 sumsaburu. Lizenziert unter der [Apache License 2.0](LICENSE).

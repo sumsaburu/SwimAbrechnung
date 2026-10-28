@@ -27,3 +27,6 @@
 *.p12
 *.keystore
 google-services.json
+/app/release
+/app/debug
+node_modules

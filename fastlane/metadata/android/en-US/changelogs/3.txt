@@ -1,0 +1,2 @@
+* Cleaned up build configuration for F-Droid
+* No functional changes

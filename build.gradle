@@ -12,5 +12,5 @@ buildscript {
 // Repositories are now managed in settings.gradle via dependencyResolutionManagement
 
 task clean(type: Delete) {
-    delete rootProject.buildDir
+    delete rootProject.layout.buildDirectory
 }
