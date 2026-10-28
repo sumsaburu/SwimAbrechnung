@@ -1,0 +1,1 @@
+* Unterstützung für reproduzierbare Builds (F-Droid)
