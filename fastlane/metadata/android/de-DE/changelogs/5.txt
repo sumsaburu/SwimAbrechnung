@@ -1,0 +1,2 @@
+* App ist kleiner und schneller (R8-Optimierung)
+* Fehler behoben: Profil bearbeiten setzte Abrechnungssätze und Trainerstatus zurück

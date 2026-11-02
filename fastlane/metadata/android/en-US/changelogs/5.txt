@@ -1,0 +1,2 @@
+* Smaller and faster app (R8 optimization)
+* Fixed: editing the profile reset rates and coach status

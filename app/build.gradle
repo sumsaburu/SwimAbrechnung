@@ -12,8 +12,8 @@ android {
         applicationId "com.swim.abrechnung"
         minSdk 26
         targetSdk 34
-        versionCode 4
-        versionName "1.2.1"
+        versionCode 5
+        versionName "1.2.2"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -23,8 +23,10 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            // R8: Code verkleinern und optimieren (von F-Droid gewuenscht)
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             // F-Droid: keine VCS-Infos ins APK schreiben (reproduzierbare Builds)
             vcsInfo.include = false
         }

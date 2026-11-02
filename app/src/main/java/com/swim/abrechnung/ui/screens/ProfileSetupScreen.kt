@@ -103,8 +103,14 @@ fun ProfileSetupScreen(
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = {
+                    // Bestehendes Profil nur aktualisieren, damit Saetze, Trainerstatus
+                    // und Berichtsdatum beim Bearbeiten erhalten bleiben
+                    val base = userProfile ?: UserProfile(
+                        fullName = "", street = "", houseNumber = "", zip = "",
+                        city = "", iban = "", bankName = ""
+                    )
                     viewModel.saveProfile(
-                        UserProfile(
+                        base.copy(
                             fullName = fullName,
                             street = street,
                             houseNumber = houseNumber,
