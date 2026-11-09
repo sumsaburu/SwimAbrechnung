@@ -1,0 +1,2 @@
+* Unterschrift wird jetzt in einem eigenen Fenster gezeichnet – das Profilformular lässt sich wieder normal scrollen
+* Striche bleiben innerhalb des Unterschriftenfelds

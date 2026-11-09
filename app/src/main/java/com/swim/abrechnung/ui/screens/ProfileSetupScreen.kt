@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -15,7 +16,14 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -95,9 +103,9 @@ fun ProfileSetupScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Text("Unterschrift:", style = MaterialTheme.typography.titleMedium)
             
-            SignaturePad(
-                initialBase64 = signatureBase64,
-                onSignatureCaptured = { signatureBase64 = it }
+            SignatureField(
+                signatureBase64 = signatureBase64,
+                onSignatureChanged = { signatureBase64 = it }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -135,83 +143,164 @@ fun ProfileSetupScreen(
     }
 }
 
+/**
+ * Zeigt im Formular nur eine Vorschau der Unterschrift. Gezeichnet wird in einem
+ * eigenen Dialog, damit das Formular normal scrollbar bleibt.
+ */
 @Composable
-fun SignaturePad(
-    initialBase64: String?,
-    onSignatureCaptured: (String?) -> Unit
+fun SignatureField(
+    signatureBase64: String?,
+    onSignatureChanged: (String?) -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    val preview = remember(signatureBase64) { decodeSignature(signatureBase64) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp)
+                .border(1.dp, MaterialTheme.colorScheme.outline)
+                .background(Color.White),
+            contentAlignment = Alignment.Center
+        ) {
+            if (preview != null) {
+                Image(
+                    bitmap = preview,
+                    contentDescription = "Gespeicherte Unterschrift",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize().padding(4.dp)
+                )
+            } else {
+                Text("Noch keine Unterschrift", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { showDialog = true }) {
+                Text(if (signatureBase64 == null) "Unterschreiben" else "Neu unterschreiben")
+            }
+            if (signatureBase64 != null) {
+                TextButton(onClick = { onSignatureChanged(null) }) {
+                    Icon(Icons.Default.Clear, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Entfernen")
+                }
+            }
+        }
+        if (signatureBase64 != null) {
+            Text("Wird mit „Profil speichern“ gespeichert.", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+
+    if (showDialog) {
+        SignatureDialog(
+            onDismiss = { showDialog = false },
+            onConfirm = { base64 ->
+                onSignatureChanged(base64)
+                showDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun SignatureDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
 ) {
     val paths = remember { mutableStateListOf<Path>() }
     var currentPath by remember { mutableStateOf<Path?>(null) }
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
-    val currentOnCaptured by rememberUpdatedState(onSignatureCaptured)
 
-    Column {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp)
-                .border(1.dp, MaterialTheme.colorScheme.outline)
-                .background(Color.White)
-                .onGloballyPositioned { canvasSize = it.size }
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            currentPath = Path().apply { moveTo(offset.x, offset.y) }
-                        },
-                        onDrag = { change, _ ->
-                            currentPath?.lineTo(change.position.x, change.position.y)
-                            val p = currentPath
-                            currentPath = null
-                            currentPath = p
-                        },
-                        onDragEnd = {
-                            currentPath?.let { paths.add(it) }
-                            currentPath = null
-                            // Unterschrift nach jedem Strich automatisch uebernehmen,
-                            // damit "Profil speichern" sie immer mitspeichert
-                            captureSignature(paths, canvasSize)?.let { currentOnCaptured(it) }
+    // Punkte auf die Zeichenflaeche begrenzen, damit kein Strich nach aussen laeuft
+    fun clamp(o: Offset) = Offset(
+        o.x.coerceIn(0f, canvasSize.width.toFloat()),
+        o.y.coerceIn(0f, canvasSize.height.toFloat())
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            modifier = Modifier.fillMaxWidth(0.95f)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Bitte im weißen Feld unterschreiben", style = MaterialTheme.typography.titleMedium)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                        .border(1.dp, MaterialTheme.colorScheme.outline)
+                        .background(Color.White)
+                        .clipToBounds()
+                        .onGloballyPositioned { canvasSize = it.size }
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragStart = { offset ->
+                                    val p = clamp(offset)
+                                    currentPath = Path().apply { moveTo(p.x, p.y) }
+                                },
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    val p = clamp(change.position)
+                                    currentPath?.lineTo(p.x, p.y)
+                                    val cp = currentPath
+                                    currentPath = null
+                                    currentPath = cp
+                                },
+                                onDragEnd = {
+                                    currentPath?.let { paths.add(it) }
+                                    currentPath = null
+                                },
+                                onDragCancel = {
+                                    currentPath?.let { paths.add(it) }
+                                    currentPath = null
+                                }
+                            )
                         }
-                    )
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val stroke = Stroke(width = 4f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                        paths.forEach { drawPath(path = it, color = Color.Black, style = stroke) }
+                        currentPath?.let { drawPath(path = it, color = Color.Black, style = stroke) }
+                    }
                 }
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                paths.forEach { path ->
-                    drawPath(
-                        path = path,
-                        color = Color.Black,
-                        style = Stroke(width = 4f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                    )
-                }
-                currentPath?.let { path ->
-                    drawPath(
-                        path = path,
-                        color = Color.Black,
-                        style = Stroke(width = 4f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                    )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = { paths.clear(); currentPath = null }) {
+                        Text("Löschen")
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = onDismiss) { Text("Abbrechen") }
+                        Button(
+                            enabled = paths.isNotEmpty(),
+                            onClick = { captureSignature(paths, canvasSize)?.let(onConfirm) }
+                        ) { Text("Übernehmen") }
+                    }
                 }
             }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start
-        ) {
-            TextButton(onClick = {
-                paths.clear()
-                currentOnCaptured(null)
-            }) {
-                Icon(Icons.Default.Clear, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Unterschrift löschen")
-            }
-        }
-
-        if (initialBase64 != null) {
-            Text("Unterschrift vorhanden ✅ (wird mit „Profil speichern“ gespeichert)", color = Color(0xFF4CAF50), style = MaterialTheme.typography.bodySmall)
-        } else {
-            Text("Noch keine Unterschrift – bitte oben im weißen Feld unterschreiben", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
         }
     }
+}
+
+private fun decodeSignature(base64: String?) = try {
+    base64?.let {
+        val bytes = Base64.decode(it, Base64.DEFAULT)
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+    }
+} catch (e: Exception) {
+    null
 }
 
 /** Rendert die gezeichneten Pfade hochaufgeloest (4x) als PNG und gibt sie Base64-kodiert zurueck. */

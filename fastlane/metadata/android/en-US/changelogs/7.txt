@@ -1,0 +1,2 @@
+* Signature is now drawn in a separate dialog – the profile form scrolls normally again
+* Strokes stay inside the signature area
