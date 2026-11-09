@@ -2,10 +2,8 @@ package com.swim.abrechnung.utils
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
@@ -20,6 +18,46 @@ import java.util.*
 
 object PdfGenerator {
 
+    private const val PAGE_WIDTH = 595
+    private const val PAGE_HEIGHT = 842
+    private const val MARGIN_BOTTOM = 50f
+    private const val ROW_HEIGHT = 15f
+
+    /** Hoehe von Summen-, Bestaetigungs- und Unterschriftsblock nach der Tabelle. */
+    private const val WETTKAMPF_FOOTER_HEIGHT = 320f
+    private const val TRAINER_FOOTER_HEIGHT = 230f
+
+    /**
+     * Haelt die aktuelle PDF-Seite und erzeugt bei Bedarf Folgeseiten.
+     */
+    private class PageWriter(private val doc: PdfDocument) {
+        private var pageNumber = 0
+        private var page: PdfDocument.Page? = null
+        lateinit var canvas: Canvas
+            private set
+        var y = 0f
+
+        fun newPage() {
+            page?.let { doc.finishPage(it) }
+            pageNumber++
+            val info = PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNumber).create()
+            val p = doc.startPage(info)
+            page = p
+            canvas = p.canvas
+            y = 40f
+        }
+
+        /** True, wenn noch [height] Punkte Platz bis zum unteren Rand sind. */
+        fun fits(height: Float) = y + height <= PAGE_HEIGHT - MARGIN_BOTTOM
+
+        fun finish() {
+            page?.let { doc.finishPage(it) }
+            page = null
+        }
+    }
+
+    private fun fmt(value: Double) = String.format(Locale.GERMAN, "%.2f", value)
+
     fun generateAndSendPdf(
         context: Context,
         profile: UserProfile,
@@ -30,22 +68,24 @@ object PdfGenerator {
     ) {
         val pdfDocument = PdfDocument()
         val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.GERMAN)
-        
+        val writer = PageWriter(pdfDocument)
+
         val wettkampfEntries = entries.filter { it.category == "Wettkampf" }.sortedBy { it.date }
         val trainerEntries = entries.filter { it.category == "Trainer" }.sortedBy { it.date }
 
         if (wettkampfEntries.isNotEmpty()) {
-            drawWettkampfPage(pdfDocument, profile, wettkampfEntries, quarter, year, sdf)
+            drawWettkampfSection(writer, profile, wettkampfEntries, quarter, year, sdf)
         }
 
         if (trainerEntries.isNotEmpty()) {
-            drawTrainerPage(pdfDocument, profile, trainerEntries, quarter, year, sdf)
+            drawTrainerSection(writer, profile, trainerEntries, quarter, year, sdf)
         }
+        writer.finish()
 
         val fileName = "Abrechnung_Q${quarter}_$year.pdf"
         val file = File(context.cacheDir, fileName)
         try {
-            pdfDocument.writeTo(FileOutputStream(file))
+            FileOutputStream(file).use { pdfDocument.writeTo(it) }
             onGenerated(System.currentTimeMillis())
         } catch (e: Exception) {
             e.printStackTrace()
@@ -55,190 +95,225 @@ object PdfGenerator {
         sendEmail(context, file, profile, quarter, year)
     }
 
-    private fun drawWettkampfPage(
-        doc: PdfDocument,
+    private fun drawWettkampfSection(
+        w: PageWriter,
         profile: UserProfile,
         entries: List<Entry>,
         quarter: Int,
         year: Int,
         sdf: SimpleDateFormat
     ) {
-        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
-        val page = doc.startPage(pageInfo)
-        val canvas = page.canvas
         val paint = Paint()
-        var y = 40f
+        val title = "Abrechnung Wettkampf (Kampfrichter/Betreuer) Q$quarter $year"
+        val cols = floatArrayOf(40f, 95f, 165f, 335f, 465f)
 
+        fun drawTableHeader() {
+            paint.textSize = 9f
+            paint.isFakeBoldText = true
+            w.canvas.drawText("Datum", cols[0], w.y, paint)
+            w.canvas.drawText("Uhrzeit", cols[1], w.y, paint)
+            w.canvas.drawText("Wettkampf", cols[2], w.y, paint)
+            w.canvas.drawText("Betreuer (h/km)", cols[3], w.y, paint)
+            w.canvas.drawText("Kampfr. (h/km)", cols[4], w.y, paint)
+            w.y += 5f
+            w.canvas.drawLine(40f, w.y, 565f, w.y, paint)
+            w.y += 15f
+            paint.isFakeBoldText = false
+            paint.textSize = 8f
+        }
+
+        fun continuationPage() {
+            w.newPage()
+            paint.textSize = 12f
+            paint.isFakeBoldText = true
+            w.canvas.drawText("$title (Fortsetzung) – ${profile.fullName}", 40f, w.y, paint)
+            w.y += 30f
+        }
+
+        w.newPage()
         paint.textSize = 16f
         paint.isFakeBoldText = true
-        canvas.drawText("Abrechnung Wettkampf (Kampfrichter/Betreuer) Q$quarter $year", 40f, y, paint)
-        y += 40f
+        w.canvas.drawText(title, 40f, w.y, paint)
+        w.y += 40f
 
-        drawProfileInfo(canvas, paint, profile, y)
-        y += 100f
+        drawProfileInfo(w.canvas, paint, profile, w.y)
+        w.y += 100f
 
-        paint.textSize = 9f
-        paint.isFakeBoldText = true
-        val cols = floatArrayOf(40f, 95f, 165f, 335f, 465f)
-        canvas.drawText("Datum", cols[0], y, paint)
-        canvas.drawText("Uhrzeit", cols[1], y, paint)
-        canvas.drawText("Wettkampf", cols[2], y, paint)
-        canvas.drawText("Betreuer (h/km)", cols[3], y, paint)
-        canvas.drawText("Kampfr. (h/km)", cols[4], y, paint)
-        y += 5f
-        canvas.drawLine(40f, y, 565f, y, paint)
-        y += 15f
+        drawTableHeader()
 
         var totalMinBetreuer = 0
         var totalMinKampf = 0
         var totalKmBetreuer = 0.0
         var totalKmKampf = 0.0
 
-        paint.isFakeBoldText = false
-        paint.textSize = 8f
         entries.forEach { entry ->
-            canvas.drawText(sdf.format(Date(entry.date)), cols[0], y, paint)
-            canvas.drawText("${entry.startTime}-${entry.endTime}", cols[1], y, paint)
+            if (!w.fits(ROW_HEIGHT)) {
+                continuationPage()
+                drawTableHeader()
+            }
+            w.canvas.drawText(sdf.format(Date(entry.date)), cols[0], w.y, paint)
+            w.canvas.drawText("${entry.startTime}-${entry.endTime}", cols[1], w.y, paint)
             val compName = if (entry.competitionName.length > 30) entry.competitionName.substring(0, 27) + "..." else entry.competitionName
-            canvas.drawText(compName, cols[2], y, paint)
+            w.canvas.drawText(compName, cols[2], w.y, paint)
 
             val minutes = TimeUtils.calculateDurationMinutes(entry.startTime, entry.endTime)
-            val hStr = String.format(Locale.GERMAN, "%.2f", minutes / 60.0)
+            val hStr = fmt(minutes / 60.0)
 
             if (entry.isBetreuer) {
                 totalMinBetreuer += minutes
                 totalKmBetreuer += entry.kilometers
-                val kmStr = if (entry.kilometers > 0) " / ${entry.kilometers}km" else ""
-                canvas.drawText("$hStr$kmStr", cols[3], y, paint)
+                val kmStr = if (entry.kilometers > 0) " / ${TimeUtils.formatNumber(entry.kilometers)} km" else ""
+                w.canvas.drawText("$hStr$kmStr", cols[3], w.y, paint)
             }
             if (entry.isKampfrichter) {
                 totalMinKampf += minutes
                 val kmVal = if (!entry.isBetreuer) entry.kilometers else 0.0
                 totalKmKampf += kmVal
-                val kmStr = if (kmVal > 0) " / $kmVal" else ""
-                canvas.drawText("$hStr$kmStr", cols[4], y, paint)
+                val kmStr = if (kmVal > 0) " / ${TimeUtils.formatNumber(kmVal)} km" else ""
+                w.canvas.drawText("$hStr$kmStr", cols[4], w.y, paint)
             }
-            y += 15f
+            w.y += ROW_HEIGHT
         }
 
-        y += 20f
+        // Summen, Bestaetigung und Unterschrift bleiben zusammen auf einer Seite
+        if (!w.fits(WETTKAMPF_FOOTER_HEIGHT)) {
+            continuationPage()
+        }
+
+        w.y += 20f
         paint.isFakeBoldText = true
-        canvas.drawLine(40f, y, 565f, y, paint)
-        y += 15f
-        
+        paint.textSize = 8f
+        w.canvas.drawLine(40f, w.y, 565f, w.y, paint)
+        w.y += 15f
+
         val hBetreuer = totalMinBetreuer / 60.0
         val hKampf = totalMinKampf / 60.0
         val sumBetreuer = hBetreuer * profile.rateBetreuer
         val sumKampf = hKampf * profile.rateKampfrichter
         val sumKm = (totalKmBetreuer + totalKmKampf) * profile.rateKm
 
-        canvas.drawText("Summe Betreuer: ${String.format(Locale.GERMAN, "%.2f", hBetreuer)} Std. / $totalKmBetreuer km", 40f, y, paint)
-        y += 15f
-        canvas.drawText("Summe Kampfrichter: ${String.format(Locale.GERMAN, "%.2f", hKampf)} Std. / $totalKmKampf km", 40f, y, paint)
-        y += 30f
+        w.canvas.drawText("Summe Betreuer: ${fmt(hBetreuer)} Std. / ${TimeUtils.formatNumber(totalKmBetreuer)} km", 40f, w.y, paint)
+        w.y += 15f
+        w.canvas.drawText("Summe Kampfrichter: ${fmt(hKampf)} Std. / ${TimeUtils.formatNumber(totalKmKampf)} km", 40f, w.y, paint)
+        w.y += 30f
 
         paint.textSize = 10f
-        canvas.drawText("Abrechnung gemäß Finanzordnung:", 40f, y, paint)
-        y += 20f
+        w.canvas.drawText("Abrechnung gemäß Finanzordnung:", 40f, w.y, paint)
+        w.y += 20f
         paint.isFakeBoldText = false
-        canvas.drawText("Vergütung Betreuer: ${String.format(Locale.GERMAN, "%.2f", sumBetreuer)} € (Satz: ${String.format(Locale.GERMAN, "%.2f", profile.rateBetreuer)} €/h)", 40f, y, paint)
-        y += 15f
-        canvas.drawText("Vergütung Kampfrichter: ${String.format(Locale.GERMAN, "%.2f", sumKampf)} € (Satz: ${String.format(Locale.GERMAN, "%.2f", profile.rateKampfrichter)} €/h)", 40f, y, paint)
-        y += 15f
-        canvas.drawText("Erstattung Fahrtkosten Gesamt: ${String.format(Locale.GERMAN, "%.2f", sumKm)} € (Satz: ${String.format(Locale.GERMAN, "%.2f", profile.rateKm)} €/km)", 40f, y, paint)
-        y += 25f
-        
+        w.canvas.drawText("Vergütung Betreuer: ${fmt(sumBetreuer)} € (Satz: ${fmt(profile.rateBetreuer)} €/h)", 40f, w.y, paint)
+        w.y += 15f
+        w.canvas.drawText("Vergütung Kampfrichter: ${fmt(sumKampf)} € (Satz: ${fmt(profile.rateKampfrichter)} €/h)", 40f, w.y, paint)
+        w.y += 15f
+        w.canvas.drawText("Erstattung Fahrtkosten Gesamt: ${fmt(sumKm)} € (Satz: ${fmt(profile.rateKm)} €/km)", 40f, w.y, paint)
+        w.y += 25f
+
         paint.isFakeBoldText = true
-        canvas.drawText("Gesamtbetrag Überweisung: ${String.format(Locale.GERMAN, "%.2f", sumBetreuer + sumKampf + sumKm)} €", 40f, y, paint)
-        y += 30f
+        w.canvas.drawText("Gesamtbetrag Überweisung: ${fmt(sumBetreuer + sumKampf + sumKm)} €", 40f, w.y, paint)
+        w.y += 30f
 
         paint.textSize = 8f
         paint.isFakeBoldText = false
         val disclaimer = "Ich bestätige, dass durch diese Abrechnung mein Übungsleiterfreibetrag (aktuell 3300€ p.a.)\nund mein Ehrenamtsfreibetrag (aktuell 960€ p.a) nicht überschritten werden."
         disclaimer.split("\n").forEach { line ->
-            canvas.drawText(line, 40f, y, paint)
-            y += 12f
+            w.canvas.drawText(line, 40f, w.y, paint)
+            w.y += 12f
         }
 
-        y += 40f
-        drawSignatureArea(canvas, paint, profile, y, "Unterschrift Betreuer / Kampfrichter")
-
-        doc.finishPage(page)
+        w.y += 40f
+        drawSignatureArea(w.canvas, paint, profile, w.y, "Unterschrift Betreuer / Kampfrichter")
     }
 
-    private fun drawTrainerPage(
-        doc: PdfDocument,
+    private fun drawTrainerSection(
+        w: PageWriter,
         profile: UserProfile,
         entries: List<Entry>,
         quarter: Int,
         year: Int,
         sdf: SimpleDateFormat
     ) {
-        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 2).create()
-        val page = doc.startPage(pageInfo)
-        val canvas = page.canvas
         val paint = Paint()
-        var y = 40f
+        val title = "Abrechnung Trainerstunden Q$quarter $year"
 
-        paint.textSize = 16f
-        paint.isFakeBoldText = true
-        canvas.drawText("Abrechnung Trainerstunden Q$quarter $year", 40f, y, paint)
-        y += 40f
-
-        drawProfileInfo(canvas, paint, profile, y)
-        y += 100f
-
-        paint.textSize = 9f
-        paint.isFakeBoldText = true
-        canvas.drawText("Datum", 40f, y, paint)
-        canvas.drawText("Ort / Trainingseinheit", 140f, y, paint)
-        canvas.drawText("Stunden", 460f, y, paint)
-        y += 5f
-        canvas.drawLine(40f, y, 565f, y, paint)
-        y += 15f
-
-        var totalHours = 0.0
-        paint.isFakeBoldText = false
-        entries.forEach { entry ->
-            canvas.drawText(sdf.format(Date(entry.date)), 40f, y, paint)
-            val loc = if (entry.locationOrRoute.length > 50) entry.locationOrRoute.substring(0, 47) + "..." else entry.locationOrRoute
-            canvas.drawText(loc, 140f, y, paint)
-            canvas.drawText("${entry.value}", 460f, y, paint)
-            totalHours += entry.value
-            y += 15f
+        fun drawTableHeader() {
+            paint.textSize = 9f
+            paint.isFakeBoldText = true
+            w.canvas.drawText("Datum", 40f, w.y, paint)
+            w.canvas.drawText("Ort / Trainingseinheit", 140f, w.y, paint)
+            w.canvas.drawText("Stunden", 460f, w.y, paint)
+            w.y += 5f
+            w.canvas.drawLine(40f, w.y, 565f, w.y, paint)
+            w.y += 15f
+            paint.isFakeBoldText = false
         }
 
-        y += 20f
+        fun continuationPage() {
+            w.newPage()
+            paint.textSize = 12f
+            paint.isFakeBoldText = true
+            w.canvas.drawText("$title (Fortsetzung) – ${profile.fullName}", 40f, w.y, paint)
+            w.y += 30f
+        }
+
+        w.newPage()
+        paint.textSize = 16f
         paint.isFakeBoldText = true
-        canvas.drawLine(40f, y, 565f, y, paint)
-        y += 20f
-        canvas.drawText("Gesamtstunden: $totalHours Std.", 40f, y, paint)
-        y += 15f
-        canvas.drawText("Trainerstatus: ${profile.trainerStatus} (Satz: ${String.format(Locale.GERMAN, "%.2f", profile.rateTrainer)} €/h)", 40f, y, paint)
-        y += 20f
+        w.canvas.drawText(title, 40f, w.y, paint)
+        w.y += 40f
+
+        drawProfileInfo(w.canvas, paint, profile, w.y)
+        w.y += 100f
+
+        drawTableHeader()
+
+        var totalHours = 0.0
+        entries.forEach { entry ->
+            if (!w.fits(ROW_HEIGHT)) {
+                continuationPage()
+                drawTableHeader()
+            }
+            w.canvas.drawText(sdf.format(Date(entry.date)), 40f, w.y, paint)
+            val loc = if (entry.locationOrRoute.length > 50) entry.locationOrRoute.substring(0, 47) + "..." else entry.locationOrRoute
+            w.canvas.drawText(loc, 140f, w.y, paint)
+            w.canvas.drawText(TimeUtils.formatNumber(entry.value), 460f, w.y, paint)
+            totalHours += entry.value
+            w.y += ROW_HEIGHT
+        }
+
+        if (!w.fits(TRAINER_FOOTER_HEIGHT)) {
+            continuationPage()
+        }
+
+        w.y += 20f
+        paint.isFakeBoldText = true
+        paint.textSize = 9f
+        w.canvas.drawLine(40f, w.y, 565f, w.y, paint)
+        w.y += 20f
+        w.canvas.drawText("Gesamtstunden: ${TimeUtils.formatNumber(totalHours)} Std.", 40f, w.y, paint)
+        w.y += 15f
+        w.canvas.drawText("Trainerstatus: ${profile.trainerStatus} (Satz: ${fmt(profile.rateTrainer)} €/h)", 40f, w.y, paint)
+        w.y += 20f
         val totalSum = totalHours * profile.rateTrainer
-        canvas.drawText("Gesamtbetrag Überweisung: ${String.format(Locale.GERMAN, "%.2f", totalSum)} €", 40f, y, paint)
-        
-        y += 40f
+        w.canvas.drawText("Gesamtbetrag Überweisung: ${fmt(totalSum)} €", 40f, w.y, paint)
+
+        w.y += 40f
         paint.textSize = 8f
         paint.isFakeBoldText = false
-        canvas.drawText("Ich bestätige, dass durch diese Abrechnung mein Übungsleiterfreibetrag (aktuell 3300€ p.a.) nicht überschritten wird.", 40f, y, paint)
+        w.canvas.drawText("Ich bestätige, dass durch diese Abrechnung mein Übungsleiterfreibetrag (aktuell 3300€ p.a.) nicht überschritten wird.", 40f, w.y, paint)
 
-        y += 40f
-        drawSignatureArea(canvas, paint, profile, y, "Unterschrift Trainer")
-
-        doc.finishPage(page)
+        w.y += 40f
+        drawSignatureArea(w.canvas, paint, profile, w.y, "Unterschrift Trainer")
     }
 
     private fun drawSignatureArea(canvas: Canvas, paint: Paint, profile: UserProfile, y: Float, label: String) {
         val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.GERMAN)
         val currentY = y + 45f
-        
+
         paint.textSize = 8f
         paint.isFakeBoldText = false
-        
+
         canvas.drawText("Datum: ${sdf.format(Date())}", 40f, currentY, paint)
-        
+
         profile.signatureBase64?.let { base64 ->
             try {
                 val decodedString = Base64.decode(base64, Base64.DEFAULT)
@@ -260,7 +335,7 @@ object PdfGenerator {
 
         canvas.drawLine(180f, currentY, 320f, currentY, paint)
         canvas.drawText(label, 180f, currentY + 12f, paint)
-        
+
         canvas.drawLine(400f, currentY, 540f, currentY, paint)
         canvas.drawText("Unterschrift Abteilungsleiter", 400f, currentY + 12f, paint)
     }

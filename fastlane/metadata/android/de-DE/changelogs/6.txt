@@ -1,0 +1,4 @@
+* PDF: Folgeseiten bei vielen Einträgen (nichts wird mehr abgeschnitten)
+* Unterschrift wird automatisch übernommen
+* Stunden und Kilometer im deutschen Zahlenformat (1,5 statt 1.5)
+* „Zuletzt erstellt“ wird jetzt je Quartal angezeigt

@@ -1,0 +1,4 @@
+* PDF: continuation pages for many entries (nothing gets cut off)
+* Signature is captured automatically
+* Hours and kilometres in German number format
+* "Last created" is now tracked per quarter

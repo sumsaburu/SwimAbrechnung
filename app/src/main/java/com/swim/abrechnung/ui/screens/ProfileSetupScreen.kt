@@ -143,7 +143,8 @@ fun SignaturePad(
     val paths = remember { mutableStateListOf<Path>() }
     var currentPath by remember { mutableStateOf<Path?>(null) }
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
-    
+    val currentOnCaptured by rememberUpdatedState(onSignatureCaptured)
+
     Column {
         Box(
             modifier = Modifier
@@ -166,6 +167,9 @@ fun SignaturePad(
                         onDragEnd = {
                             currentPath?.let { paths.add(it) }
                             currentPath = null
+                            // Unterschrift nach jedem Strich automatisch uebernehmen,
+                            // damit "Profil speichern" sie immer mitspeichert
+                            captureSignature(paths, canvasSize)?.let { currentOnCaptured(it) }
                         }
                     )
                 }
@@ -187,61 +191,54 @@ fun SignaturePad(
                 }
             }
         }
-        
+
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.Start
         ) {
-            TextButton(onClick = { 
+            TextButton(onClick = {
                 paths.clear()
-                onSignatureCaptured(null)
+                currentOnCaptured(null)
             }) {
                 Icon(Icons.Default.Clear, contentDescription = null)
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Löschen")
-            }
-            
-            Button(onClick = {
-                if (paths.isNotEmpty() && canvasSize.width > 0 && canvasSize.height > 0) {
-                    // High-Res capture: 4x scale
-                    val scaleFactor = 4f
-                    val bitmap = Bitmap.createBitmap(
-                        (canvasSize.width * scaleFactor).toInt(),
-                        (canvasSize.height * scaleFactor).toInt(),
-                        Bitmap.Config.ARGB_8888
-                    )
-                    val canvas = android.graphics.Canvas(bitmap)
-                    canvas.drawColor(android.graphics.Color.WHITE)
-                    canvas.scale(scaleFactor, scaleFactor)
-                    
-                    val paint = android.graphics.Paint().apply {
-                        color = android.graphics.Color.BLACK
-                        style = android.graphics.Paint.Style.STROKE
-                        strokeWidth = 6f
-                        strokeCap = android.graphics.Paint.Cap.ROUND
-                        strokeJoin = android.graphics.Paint.Join.ROUND
-                        isAntiAlias = true
-                        isFilterBitmap = true
-                    }
-                    
-                    paths.forEach { composePath ->
-                        canvas.drawPath(composePath.asAndroidPath(), paint)
-                    }
-                    
-                    val outputStream = ByteArrayOutputStream()
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-                    val base64 = Base64.encodeToString(outputStream.toByteArray(), Base64.DEFAULT)
-                    onSignatureCaptured(base64)
-                }
-            }) {
-                Text("Unterschrift übernehmen")
+                Text("Unterschrift löschen")
             }
         }
-        
+
         if (initialBase64 != null) {
-            Text("Unterschrift ist gespeichert ✅", color = Color(0xFF4CAF50), style = MaterialTheme.typography.bodySmall)
+            Text("Unterschrift vorhanden ✅ (wird mit „Profil speichern“ gespeichert)", color = Color(0xFF4CAF50), style = MaterialTheme.typography.bodySmall)
         } else {
-            Text("Keine Unterschrift gespeichert", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+            Text("Noch keine Unterschrift – bitte oben im weißen Feld unterschreiben", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
         }
     }
+}
+
+/** Rendert die gezeichneten Pfade hochaufgeloest (4x) als PNG und gibt sie Base64-kodiert zurueck. */
+private fun captureSignature(paths: List<Path>, canvasSize: IntSize): String? {
+    if (paths.isEmpty() || canvasSize.width <= 0 || canvasSize.height <= 0) return null
+    val scaleFactor = 4f
+    val bitmap = Bitmap.createBitmap(
+        (canvasSize.width * scaleFactor).toInt(),
+        (canvasSize.height * scaleFactor).toInt(),
+        Bitmap.Config.ARGB_8888
+    )
+    val canvas = android.graphics.Canvas(bitmap)
+    canvas.drawColor(android.graphics.Color.WHITE)
+    canvas.scale(scaleFactor, scaleFactor)
+
+    val paint = android.graphics.Paint().apply {
+        color = android.graphics.Color.BLACK
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 6f
+        strokeCap = android.graphics.Paint.Cap.ROUND
+        strokeJoin = android.graphics.Paint.Join.ROUND
+        isAntiAlias = true
+        isFilterBitmap = true
+    }
+    paths.forEach { composePath -> canvas.drawPath(composePath.asAndroidPath(), paint) }
+
+    val outputStream = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+    return Base64.encodeToString(outputStream.toByteArray(), Base64.DEFAULT)
 }

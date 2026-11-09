@@ -1,6 +1,7 @@
 package com.swim.abrechnung.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.swim.abrechnung.data.AppDatabase
@@ -27,6 +28,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedYear = MutableStateFlow(Calendar.getInstance().get(Calendar.YEAR))
     val selectedYear: StateFlow<Int> = _selectedYear.asStateFlow()
+
+    // "Letzter Bericht" je Jahr/Quartal; bewusst in SharedPreferences statt in der
+    // Datenbank, damit keine Schema-Migration (und kein Datenverlust) noetig ist
+    private val reportPrefs = application.getSharedPreferences("report_tracking", Context.MODE_PRIVATE)
+    private val _reportTick = MutableStateFlow(0)
+
+    val lastReportForSelected: Flow<Long> =
+        combine(_selectedQuarter, _selectedYear, _reportTick) { quarter, year, _ ->
+            reportPrefs.getLong(reportKey(quarter, year), 0L)
+        }
+
+    private fun reportKey(quarter: Int, year: Int) = "last_report_${year}_Q$quarter"
+
+    fun markReportSent(quarter: Int, year: Int, timestamp: Long) {
+        reportPrefs.edit().putLong(reportKey(quarter, year), timestamp).apply()
+        _reportTick.value = _reportTick.value + 1
+        updateLastReportTimestamp(timestamp)
+    }
 
     init {
         val database = AppDatabase.getDatabase(application)

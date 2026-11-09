@@ -1,6 +1,19 @@
 package com.swim.abrechnung.utils
 
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
+
 object TimeUtils {
+    /**
+     * Formats a decimal number German-style without unnecessary decimals,
+     * e.g. 1.5 -> "1,5", 2.0 -> "2", 1.25 -> "1,25".
+     */
+    fun formatNumber(value: Double): String {
+        val df = DecimalFormat("0.##", DecimalFormatSymbols(Locale.GERMAN))
+        return df.format(value)
+    }
+
     /**
      * Calculates duration in minutes between two time strings in "HH:mm" format.
      */

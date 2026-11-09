@@ -26,6 +26,7 @@ fun ReportScreen(viewModel: MainViewModel, navController: NavController) {
     val selectedYear by viewModel.selectedYear.collectAsState()
     val entries by viewModel.filteredEntries.collectAsState(initial = emptyList())
     val userProfile by viewModel.userProfile.collectAsState(initial = null)
+    val lastReportForQuarter by viewModel.lastReportForSelected.collectAsState(initial = 0L)
     
     val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.GERMAN) }
     val dateTimeFormatter = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN) }
@@ -85,19 +86,17 @@ fun ReportScreen(viewModel: MainViewModel, navController: NavController) {
             
             Divider(modifier = Modifier.padding(vertical = 16.dp))
             
-            // Info über letzten versendeten Bericht
-            userProfile?.let { profile ->
-                if (profile.lastReportGeneratedAt > 0) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Text(
-                            text = "Letzter Bericht versendet am: ${dateTimeFormatter.format(Date(profile.lastReportGeneratedAt))}",
-                            modifier = Modifier.padding(8.dp),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
+            // Info über letzten versendeten Bericht (je Quartal)
+            if (lastReportForQuarter > 0) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Text(
+                        text = "Bericht Q$selectedQuarter $selectedYear zuletzt erstellt am: ${dateTimeFormatter.format(Date(lastReportForQuarter))}",
+                        modifier = Modifier.padding(8.dp),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
 
@@ -116,9 +115,9 @@ fun ReportScreen(viewModel: MainViewModel, navController: NavController) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Zusammenfassung Q$selectedQuarter $selectedYear", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Trainerstunden: $trainerTotal Std.")
+                    Text("Trainerstunden: ${TimeUtils.formatNumber(trainerTotal)} Std.")
                     Text("Wettkampfzeit gesamt: ${TimeUtils.formatMinutesToHours(totalWettkampfMinutes)}")
-                    Text("Kilometer gesamt: $kmTotal km")
+                    Text("Kilometer gesamt: ${TimeUtils.formatNumber(kmTotal)} km")
                 }
             }
             
@@ -135,7 +134,7 @@ fun ReportScreen(viewModel: MainViewModel, navController: NavController) {
                             quarter = selectedQuarter,
                             year = selectedYear,
                             onGenerated = { timestamp ->
-                                viewModel.updateLastReportTimestamp(timestamp)
+                                viewModel.markReportSent(selectedQuarter, selectedYear, timestamp)
                             }
                         )
                     }
@@ -156,7 +155,7 @@ fun ReportScreen(viewModel: MainViewModel, navController: NavController) {
             ) {
                 items(entries) { entry ->
                     val title = if (entry.category == "Trainer") {
-                        "Trainer: ${entry.value} Std."
+                        "Trainer: ${TimeUtils.formatNumber(entry.value)} Std."
                     } else {
                         val roles = mutableListOf<String>()
                         if (entry.isKampfrichter) roles.add("Kampfrichter")
@@ -172,7 +171,7 @@ fun ReportScreen(viewModel: MainViewModel, navController: NavController) {
                         }
                         append(" - ${entry.locationOrRoute}")
                         if (entry.kilometers > 0) {
-                            append(" [${entry.kilometers} km]")
+                            append(" [${TimeUtils.formatNumber(entry.kilometers)} km]")
                         }
                     }
 
